@@ -24,51 +24,52 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import java.io.Serializable
 import java.time.LocalDate
 import java.util.*
 
-// ---------------------------------------------------------------------------
-// Types/model
 
-/** Type de produit : consommable, durable ou autre. */
+/* ------------------------------------------------------------------------- */
+/* Modèle de données : on suppose que ce data class existe dans ce fichier. */
+/* Il transporte les valeurs saisies dans le formulaire vers HomeScreen.    */
 enum class ProductType { CONSUMABLE, DURABLE, OTHER }
 
-// ---------------------------------------------------------------------------
-// Composable écran
+data class Product(
+    val name: String,
+    val type: ProductType,
+    val color: String,
+    val country: String,
+    val favorite: Boolean
+) : Serializable
+/* ------------------------------------------------------------------------- */
 
 @Composable
 fun FormScreen(navController: NavController) {
 
-    // Contexte Android (pour Toast + DatePicker)
+    // --- 1) Contexte Android ---
+    // Nécessaire si on veut afficher un Toast par exemple
     val context = LocalContext.current
 
-    // --------------------------- ÉTAT (rememberSaveable) --------------------
-    var name      by rememberSaveable { mutableStateOf("") }
-    var type      by rememberSaveable { mutableStateOf(ProductType.CONSUMABLE) }
-    var date      by rememberSaveable { mutableStateOf(LocalDate.now()) }
-    var color     by rememberSaveable { mutableStateOf("") }
-    var country   by rememberSaveable { mutableStateOf("") }
-    var favorite  by rememberSaveable { mutableStateOf(false) }
-    var showDialog by remember { mutableStateOf(false) }
+    // --- 2) États du formulaire ---
+    // rememberSaveable permet de restaurer ces valeurs si le composable est recréé
+    var name     by rememberSaveable { mutableStateOf("") }
+    var type     by rememberSaveable { mutableStateOf(ProductType.CONSUMABLE) }
+    var color    by rememberSaveable { mutableStateOf("") }
+    var country  by rememberSaveable { mutableStateOf("") }
+    var favorite by rememberSaveable { mutableStateOf(false) }
 
-    // --------------------------- DatePickerDialog ---------------------------
-    val calendar = Calendar.getInstance()
-    val datePicker = DatePickerDialog(
-        context,
-        { _, y, m, d -> date = LocalDate.of(y, m + 1, d) },
-        date.year, date.monthValue - 1, date.dayOfMonth
-    )
-
-    // --------------------------- UI ----------------------------------------
+    // --- 3) Conteneur scrollable ---
+    // Column + verticalScroll pour gérer les grands formulaires
     Column(
         modifier = Modifier
+            .fillMaxSize()               // occupe tout l’écran
             .padding(16.dp)
-            .verticalScroll(rememberScrollState())      // scrollable (diapo 8) :contentReference[oaicite:6]{index=6}:contentReference[oaicite:7]{index=7}
+            .verticalScroll(rememberScrollState())
     ) {
-        // Image placeholder (diapo Image) :contentReference[oaicite:8]{index=8}:contentReference[oaicite:9]{index=9}
+        // --- 4) Image illustrative ---
         Image(
             painter = painterResource(id = android.R.drawable.ic_menu_gallery),
-            contentDescription = "Illustration",
+            contentDescription = "Illustration produit",
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)
@@ -76,27 +77,27 @@ fun FormScreen(navController: NavController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Champ texte Nom (obligatoire)
+        // --- 5) Champ Nom (obligatoire) ---
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
             label = { Text("Nom du produit *") },
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             singleLine = true,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(Modifier.height(16.dp))
 
-        // Type de produit (RadioButtons)
-        Text("Type de produit", style = MaterialTheme.typography.bodyMedium)
+        // --- 6) Choix du type (RadioButtons) ---
+        Text("Type de produit")
         Row {
             ProductType.values().forEach { pt ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .padding(end = 8.dp)
-                        .clickable { type = pt }
+                        .clickable { type = pt }  // on change type au clic
                 ) {
                     RadioButton(
                         selected = (type == pt),
@@ -109,14 +110,7 @@ fun FormScreen(navController: NavController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Sélecteur de date
-        OutlinedButton(onClick = { datePicker.show() }) {
-            Text("Date d'achat : $date")
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Couleur (facultatif)
+        // --- 7) Champ Couleur (facultatif) ---
         OutlinedTextField(
             value = color,
             onValueChange = { color = it },
@@ -127,7 +121,7 @@ fun FormScreen(navController: NavController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Pays d’origine (facultatif)
+        // --- 8) Champ Pays (facultatif) ---
         OutlinedTextField(
             value = country,
             onValueChange = { country = it },
@@ -138,50 +132,41 @@ fun FormScreen(navController: NavController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Favori (Checkbox)
+        // --- 9) Checkbox Favori ---
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(favorite, onCheckedChange = { favorite = it })
+            Checkbox(
+                checked = favorite,
+                onCheckedChange = { favorite = it }
+            )
             Spacer(Modifier.width(8.dp))
             Text("Ajouter aux favoris")
         }
 
         Spacer(Modifier.height(24.dp))
 
-        // ------------------- Bouton Valider --------------------------------
+        // --- 10) Bouton Valider ---
         Button(
             onClick = {
-                if (name.isBlank()) {
-                    Toast.makeText(context, "Le nom est requis", Toast.LENGTH_SHORT).show()
-                } else {
-                    showDialog = true
-                }
+                // Création de l’objet Product avec toutes les valeurs du formulaire
+                val product = Product(
+                    name     = name,
+                    type     = type,
+                    color    = color,
+                    country  = country,
+                    favorite = favorite
+                )
+
+                // Transmission vers HomeScreen via SavedStateHandle
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("product", product)
+
+                // Retour à l’écran précédent
+                navController.popBackStack()
             },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Valider")
-        }
-
-        // ------------------- AlertDialog récapitulatif ---------------------
-        if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false },
-                title = { Text("Détails du produit") },
-                text = {
-                    Text(
-                        buildString {
-                            append("Nom : $name\n")
-                            append("Type : ${type.name}\n")
-                            append("Date : $date\n")
-                            append("Couleur : ${color.ifBlank { "—" }}\n")
-                            append("Pays : ${country.ifBlank { "—" }}\n")
-                            append("Favori : ${if (favorite) "Oui" else "Non"}")
-                        }
-                    )
-                },
-                confirmButton = {
-                    Button(onClick = { showDialog = false }) { Text("OK") }
-                }
-            )
         }
     }
 }
